@@ -1,7 +1,7 @@
+from py_neuromodulation import nm_normalization
 
 def test_settings(settings: dict, verbose=True) -> None:
     """Test if settings are specified correctly in nm_settings.json
-
     Parameters
     ----------
     settings: dict
@@ -53,7 +53,7 @@ def test_settings(settings: dict, verbose=True) -> None:
         )
         assert s["feature_normalization_settings"][
             "normalization_method"
-        ] in ["mean", "median", "zscore", "zscore-median"]
+        ] in [e.value for e in nm_normalization.NORM_METHODS]
         assert isinstance(
             s["feature_normalization_settings"]["clip"], (float, int, bool)
         )
