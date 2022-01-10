@@ -11,6 +11,8 @@ from scipy.signal import convolve, find_peaks
 from mne.filter import create_filter
 
 
+# work on for dyskinesia decoding
+
 class NoValidTroughException(Exception):
     pass
 
