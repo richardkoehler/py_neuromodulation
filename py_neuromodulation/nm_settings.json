@@ -16,7 +16,7 @@
         "return_raw": true,
         "project_cortex": true,
         "project_subcortex": true,
-        "coherence": true
+        "coherence": false
     },
     "raw_resampling_settings": {
         "resample_freq": 1000
