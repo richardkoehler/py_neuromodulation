@@ -81,20 +81,22 @@ class BidsStream(nm_stream.PNStream):
         if self.coord_list is None and True in [self.settings["project_cortex"],
                                         self.settings["project_subcortex"]]:
             raise ValueError("no coordinates could be loaded from BIDS Dataset")
-        else:
+        elif self.coord_list is not None:
             self.coords = self._add_coordinates(self.coord_names, self.coord_list)
-            self.sess_rigth = self._get_sess_lat(self.coords)
+            self.sess_right = self._get_sess_lat(self.coords)
 
         self.gen = nm_generator.ieeg_raw_generator(
             self.raw_arr_data,
             self.settings,self.fs
         )
 
-        self._set_run()
-
     def run_bids(self) -> None:
         """process BIDS recording, add labels and save features after finish
         """
+
+        # init features, projection etc. here
+        # settings, nm_channels might have been changed by the user in e.g. the ipynb
+        self._set_run()
 
         self.run()
 

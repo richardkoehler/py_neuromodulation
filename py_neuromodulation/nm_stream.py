@@ -69,7 +69,6 @@ class PNStream(ABC):
         self.VERBOSE = VERBOSE
 
         self.settings = nm_IO.read_settings(self.PATH_SETTINGS)
-        nm_test_settings.test_settings(self.settings)
 
         if True in [self.settings["methods"]["project_cortex"],
                     self.settings["methods"]["project_subcortex"]]:
@@ -119,6 +118,8 @@ class PNStream(ABC):
         """Initialize preprocessing, and feature estimation modules
         """
 
+        nm_test_settings.test_settings(self.settings, self.nm_channels)
+
         self.CH_NAMES_USED, self.CH_TYPES_USED, self.FEATURE_IDX, self.LABEL_IDX = \
             self._get_ch_info(self.nm_channels)
 
@@ -145,8 +146,13 @@ class PNStream(ABC):
         )
 
         self.projection = self._get_projection(self.settings, self.nm_channels)
-        if self.projection is not None:
-            self.sess_right = self._get_sess_lat(self.coords)
+        if "cortex_left" in self.coords or "cortex_right" in self.coords:
+            if self.projection is not None or \
+                len(self.coords["cortex_left"]["positions"]) or \
+                len(self.coords["cortex_right"]["positions"]):
+                self.sess_right = self._get_sess_lat(self.coords)
+            else:
+                self.sess_right = None
         else:
             self.sess_right = None
 
@@ -397,7 +403,12 @@ class PNStream(ABC):
 
     def plot_cortical_projection(self):
         """plot projection of cortical grid electrodes on cortex"""
-        nmplotter = nm_plots.NM_Plot(ecog_strip=self.projection.ecog_strip,
-                grid_cortex=self.projection.grid_cortex,
-                sess_right=self.sess_right)
-        nmplotter.plot_cortex()
+
+        if hasattr(self, 'features') is False:
+            self._set_run()
+
+        nmplotter = nm_plots.NM_Plot(
+            ecog_strip=self.projection.ecog_strip if self.projection is not None else None,
+            grid_cortex=self.projection.grid_cortex if self.projection is not None else None,
+            sess_right=self.sess_right)
+        nmplotter.plot_cortex(set_clim=False)

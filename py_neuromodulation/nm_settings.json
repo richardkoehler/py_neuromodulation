@@ -14,9 +14,15 @@
         "raw_hjorth": true,
         "sharpwave_analysis": true,
         "return_raw": true,
+<<<<<<< HEAD
         "project_cortex": true,
         "project_subcortex": true,
         "coherence": false
+=======
+        "project_cortex": false,
+        "project_subcortex": false,
+        "coherence": true
+>>>>>>> origin
     },
     "raw_resampling_settings": {
         "resample_freq": 1000

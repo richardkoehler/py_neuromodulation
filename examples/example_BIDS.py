@@ -11,9 +11,9 @@ def run_example_BIDS():
 
     RUN_NAME = "sub-testsub_ses-EphysMedOff_task-buttonpress_run-0_ieeg.vhdr"
     PATH_RUN = os.path.join(
-        os.path.abspath('examples\\data'), 'sub-testsub', 'ses-EphysMedOff', 'ieeg',
+        os.path.abspath(os.path.join('examples','data')), 'sub-testsub', 'ses-EphysMedOff', 'ieeg',
         RUN_NAME)
-    PATH_BIDS = os.path.abspath('examples\\data')
+    PATH_BIDS = os.path.abspath(os.path.join('examples','data'))
     PATH_OUT = os.path.abspath(os.path.join('examples', 'data', 'derivatives'))
 
     # read default settings
@@ -60,12 +60,14 @@ def run_example_BIDS():
     feature_reader.set_decoder(
         model = model,
         eval_method=metrics.balanced_accuracy_score,
-        cv_method=model_selection.ShuffleSplit(n_splits=1, test_size=0.3),# model_selection.KFold(n_splits=3, shuffle=True),
+        #cv_method=model_selection.KFold(n_splits=3, shuffle=True),
+        cv_method="NonShuffledTrainTestSplit",
         get_movement_detection_rate=True,
         min_consequent_count=2,
         TRAIN_VAL_SPLIT=False,
-        RUN_BAY_OPT=True,
-        bay_opt_param_space=bay_opt_param_space
+        RUN_BAY_OPT=False,
+        bay_opt_param_space=bay_opt_param_space,
+        use_nested_cv=True
     )
 
     performances = feature_reader.run_ML_model(
