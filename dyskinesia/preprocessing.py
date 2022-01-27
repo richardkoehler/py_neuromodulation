@@ -9,8 +9,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import mne_bids
 import mne
-
-# DATACLASSES TO SPECIFY, STORE, AND LOAD PATIENT-RUN INFO
+from scipy.signal import resample_poly
 
 
 # creates Class-init, repr gives printing-info, frozen makes 'immutable'
@@ -18,16 +17,16 @@ import mne
 @dataclass(init=True, repr=True, )  #frozen=True,
 class RunInfo:
     '''Stores the details of one specific run to import'''
-    # check: ??? @abstractmethod combi dataclass, metaclass and absrtacmethod
     sub: str  # patient id, e.g. '008'
     ses: str  # sessions id, e.g. 'EphysMedOn02'
     task: str  # task id, e.g. 'Rest'
-    acq: str  # acquisition, often stimulation, e.g. 'StimOff'
-    # in dyskinesia experiments levodopa status is added: 'StimOffLD00'
+    acq: str  # acquisition: stimulation and Dysk-Meds (StimOffLevo30)
     run: str  # run sequence, e.g. '01'
     sourcepath: str  # directory where source data (.Poly5) is stored
-    bidspath: Any = None  # is made after initiazing based on other values
-    store_str: Any = None  # is made after initiazing based on other values
+    bidspath: Any = None  # made after initiazing
+    store_str: Any = None  # made after initiazing
+    preproc_sett: str = None  # foldername for specific settings
+    fig_path: str = None  # folder to store figures
 
     def __post_init__(self,):  # is called after initialization
         bidspath = mne_bids.BIDSPath(
@@ -47,6 +46,20 @@ class RunInfo:
         self.bidspath = bidspath
         # folder name to store figures and derivative
         self.store_str = store_str
+        if not self.preproc_sett == None:
+            if not os.path.exists(os.path.join(
+                self.fig_path,
+                'preprocessing',
+                self.store_str,
+                self.preproc_sett,
+            )):
+                os.mkdir(os.path.join(
+                    self.fig_path,
+                    'preprocessing',
+                    self.store_str,
+                    self.preproc_sett,
+                ))
+
 
 # change value via object.__setattr__ if frozen=True
 # object.__setattr__(self, 'bidspath', bidspath)
@@ -102,231 +115,50 @@ class RunRawData:
                   f'\n{len(self.emg.ch_names)} EMG channels, '
                   f'\n{len(self.ecg.ch_names)} ECG channel(s), '
                   f'\n{len(self.acc.ch_names)} Accelerometry (misc) channels.\n\n')
-        
-# for detailed exploraiton of content bids-obejcts:
-# e.g. run1.bids.info.keys(), or dir(run1.bids)
 
 
-# FUNCTIONS FOR PREPROCESSING
 
-def block_artefact_selection(
-    bids_dict: dict,
-    group: str,
-    win_len: float=.5,
-    overlap=None,
-    n_stds_cut: float=2.5,
-    save=None
+def resample(
+    data, group, Fs_orig, Fs_new
 ):
-    '''Function to perform pre-processing, including visualization
-    of raw data for artefacrt selection and deletion.
-    Checks per block whether there is an outlier (value higher or low
-    than n_std_cut times std dev of full recording). If an outlier
-    present: full block is reverted to missing (np.nan). OR if
-    more than 25% is exactly 0 in a block -> block is set to nan.
+    """
+    Assuming downsampling; TO ADD DOC-STRING
+    """
+    data = data[group]
+    down = int(Fs_orig / Fs_new)  # factor to down sample
+    newdata = np.zeros((data.shape[0], data.shape[1],
+                        int(data.shape[2] / down)))
+    time = data[:, 0, :]  # all time rows from all windows
+    newtime = time[:, ::down]  # all windows, only times on down-factor
+    newdata[:, 0, :] = newtime  # alocate new times in new data array
+    newdata[:, 1:, :] = resample_poly(
+        data[:, 1:, :], up=1, down=down, axis=2
+    )  # fill signals rows with signals
 
-    CHECK: artefact deletion based on values or blocks?
-    
-    Input:
-    - bids_dict, Raw BIDS selection: grouped BIDS raw, e.g. rawRun1.ecog,
-    - win_len (float): block window length in seconds,
-    - overlap (float): time of overlap between consec blocks (seconds),
-    - n_stds_cut, int: number of std-dev's above and below mean that
-        is used for cut-off's in artefact detection,
-    - save (str): 1) directory where to store figure, 2) 'show' to only
-        plot in notebook, 3) None to not plot.
-    Output:
-    sel_bids (array): array with all channels in which artefacts
-        are replaced by np.nan's.
-    '''
-    print(f'START ARTEFACT REMOVAL: {group}')
-    data = bids_dict[group]
-    ch_nms = data.ch_names
-    fs = data.info['sfreq']  # ONLY FOR BLOCKS
-    (ch_arr, ch_t) = data.get_data(return_times=True)
-    # visual check by plotting before selection
-    if save:
-        fig, axes = plt.subplots(len(ch_arr), 2, figsize=(16, 16))
-        for n, c in enumerate(np.arange(len(ch_arr))):
-            axes[c, 0].plot(ch_t, ch_arr[c, :])
-            axes[c, 0].set_ylabel(ch_nms[n], rotation=90)
-        axes[0, 0].set_title('Raw signal BEFORE artefact deletion')
-
-    # Artefact removal part
-    win_n = int(win_len * fs)  # number of samples to fit in one window
-    n_wins = int(ch_arr.shape[1] / win_n)  # num of windows to split in
-    # new array to store data without artefact, ch + 1 is for time
-    new_arr = np.zeros((n_wins, len(ch_nms) + 1, win_n), dtype=float)
-    n_nan = {}  # number of blocks corrected to nan
-    # first reorganize data
-    for w in np.arange(new_arr.shape[0]):  # loop over new window's
-        # first row of windows is time
-        new_arr[w, 0, :] = ch_t[w * win_n:w * win_n + win_n]
-        # other rows filled with channels
-        new_arr[w, 1:, :] = ch_arr[:, w * win_n:w * win_n + win_n]
-    # correct to nan for artefacts per channel
-    cuts = {}  # to store thresholds per channel
-    for c in np.arange(ch_arr.shape[0]):  # loop over ch-rows
-        # cut-off's are X std dev above and below channel-mean
-        cuts[c] = (np.mean(ch_arr[c]) - (n_stds_cut * np.std(ch_arr[c])),
-                np.mean(ch_arr[c]) + (n_stds_cut * np.std(ch_arr[c])))
-        n_nan[c] = 0
-        for w in np.arange(new_arr.shape[0]):  # loop over windows
-            if (new_arr[w, c + 1, :] < cuts[c][0]).any():
-                new_arr[w, c + 1, :] = [np.nan] * win_n
-                n_nan[c] = n_nan[c] + 1
-            elif (new_arr[w, c + 1, :] > cuts[c][1]).any():
-                new_arr[w, c + 1, :] = [np.nan] * win_n
-                n_nan[c] = n_nan[c] + 1
-            elif (new_arr[w, c + 1, :] == 0).sum() > (.25 * win_n):
-                # more than 25% exactly 0
-                new_arr[w, c + 1, :] = [np.nan] * win_n
-                n_nan[c] = n_nan[c] + 1
-
-    # visual check by plotting after selection
-    if save:
-        for c in np.arange(len(ch_arr)):
-            plot_ch = []
-            for w in np.arange(new_arr.shape[0]):
-                plot_ch.extend(new_arr[w, c + 1, :])  # c + 1 to skip time
-            plot_t = ch_t[:len(plot_ch)]
-            axes[c, 1].plot(plot_t, plot_ch, color='blue')
-            # color shade isnan parts
-            ynan = np.isnan(plot_ch)
-            ynan = ynan * 2
-            axes[c, 1].fill_between(
-                x=plot_t,
-                y1=cuts[c][0],
-                y2=cuts[c][1],
-                color='red',
-                alpha=.3,
-                where=ynan > 1,
-            )
-            axes[c, 1].set_title(f'{n_nan[c]} windows deleted')
-        fig.suptitle('Raw signal artefact deletion (cut off: '
-                f'{n_stds_cut} std dev +/- channel mean', size=14)
-        fig.tight_layout(h_pad=.2)
-
-        if save != 'show':
-            try:
-                f_name = (f'{group}_artefact_blockremoval_'
-                        f'cutoff_{n_stds_cut}_sd.jpg')
-                plt.savefig(os.path.join(save, f_name), dpi=150,
-                            facecolor='white')
-                plt.close()
-            except FileNotFoundError:
-                print(f'Directory {save} is not valid')
-        elif save == 'show':
-            plt.show()
-            plt.close()
-
-    ## DROP CHANNELS WITH TOO MANY NAN'S
-    ch_sel = [0, ]  # channels to keep, incl time
-    ch_nms_out = ['time', ]
-    for c in np.arange(new_arr.shape[1]):  # loop over rows of windows
-        if c == 0:
-            continue  # skip time row
-        else:
-            nans = np.isnan(new_arr[:, c, :]).sum()
-            length = new_arr.shape[0] * new_arr.shape[2]
-            nanpart = nans / length
-            print(f'Ch {c}: {round(nanpart * 100, 2)}'
-                  f'% is NaN (artefact or zero)')
-            if nanpart < .5:
-                ch_sel.append(c)
-                ch_nms_out.append(ch_nms[c - 1])
-    # EXCLUDE BAD CHANNELS WITH TOO MANY Nan's and Zero's
-    out_arr = new_arr[:, ch_sel, :]
+    return newdata
 
 
-    return out_arr, ch_nms_out
-
-
-def block_bp_filter(
-    clean_dict, group, sfreq, l_freq, h_freq,
-    method='fir', fir_window='hamming', verbose=False
+def save_arrays(
+    data: dict, group: str, runInfo: Any,
 ):
     '''
-    DOCT STRING TO WRITE
+    Function to save preprocessed 3d-arrays as npy-files.
+
+    Arguments:
+        - data (dict): containing 3d-arrays
+        - group(str): group to save
+        - runInfo (class): class containing info of spec-run
+
+    Returns:
+        - None
     '''
-    data_out = clean_dict[group].copy()
-    for w in np.arange(clean_dict[group].shape[0]):
-        data_out[w, 1:, :] = mne.filter.filter_data(
-            data=clean_dict[group][w, 1:, :],
-            sfreq=sfreq,
-            l_freq=l_freq,
-            h_freq=h_freq,
-            method=method,
-            fir_window=fir_window,
-            verbose=verbose,
-        )
+    # define (and make) directory
+    f_dir = os.path.join(os.path.dirname(runInfo.fig_path),
+                        'data/preprocessed',
+                        runInfo.store_str)
+    if not os.path.exists(f_dir):
+        os.mkdir(f_dir)
 
-    return data_out
+    f_name = f'preproc_{runInfo.preproc_sett}_{group}.npy'
+    np.save(os.path.join(f_dir, f_name), data[group])
 
-
-def block_notch_filter(
-    bp_dict: dict,
-    group: str,
-    transBW: int,  # Default in doc is 1
-    notchW: int,  # Deafult in doc is f/200
-    Fs: int = 4000,  # sample freq, default 4000 Hz
-    freqs: list = [50, 100, 150],  # freq's to filter (EU powerline 50 Hz)
-    save=None,
-    verbose='Warning'
-):
-    '''
-    Applies notch-filter to filter local peaks due to powerline
-    noise. Uses mne-fucntion (see doc).
-    Inputs:
-    - data (array): 2D data array with channels to filter,
-    - transBW (int): transition bandwidth, try out and decide on
-        defaults for LFP and ECOG seperately,
-    - notchW (int): notch width, try out and decide on
-        defaults for LFP and ECOG seperately,
-    - save (str): if pre and post-filter figures should be saved,
-        directory should be given here,
-    - verbose (str): amount of documentation printed.
-    Output:
-    - data: filtered data array.
-    '''
-    data = getattr(bp_dict, group)
-    data_out = data.copy()
-    if save:
-        plot_wins = np.arange(1000, 1020)  # select range of win's to plot
-        # visualize before notch filter
-        fig, axes = plt.subplots(data.shape[1] - 1, 2, figsize=(12, 12))
-        for C in np.arange(1, data.shape[1]):
-            for w in plot_wins:
-                axes[C-1, 0].psd(data[w, C, :], Fs=4000,
-                               NFFT=1024, label=str(w))
-                axes[C-1, 0].set_xlim(0, 160)
-        axes[0, 0].set_title('PSD before NOTCH filter')
-
-    # apply notch filter
-    for w in np.arange(data.shape[0]):
-        data_out[w, 1:, :] = mne.filter.notch_filter(
-            x=data[w, 1:, :],
-            Fs=Fs,
-            freqs=freqs,
-            trans_bandwidth=transBW,
-            notch_widths=notchW,
-            method='fir',
-            fir_window='hamming',
-            fir_design='firwin',
-            verbose=verbose,
-        )
-
-    if save:
-        # visualize after notch filter
-        for C in np.arange(1, data.shape[1]):
-            for w in plot_wins:
-                axes[C-1, 1].psd(data[w, C, :], Fs=4000,
-                               NFFT=1024, label=str(w))
-                axes[C-1, 1].set_xlim(0, 160)
-        axes[0, 1].set_title('PSD AFTER NOTCH filter')
-
-        fname = f'{group}_Notch_block_transBW{transBW}_notchW{notchW}.jpg'
-        plt.savefig(os.path.join(save, fname), dpi=150,
-                    faceccolor='white')
-        plt.close()
-    
-    return data
