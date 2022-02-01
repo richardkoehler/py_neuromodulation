@@ -33,9 +33,9 @@ def notch_filter(
     transBW: int,  # Default in doc is 1
     notchW: int,  # Deafult in doc is f/200
     Fs: int = 4000,  # sample freq, default 4000 Hz
-    freqs: list = [50, 100, 150],  # freq's to filter (EU powerline 50 Hz)
+    freqs: list = [50, 100, 150, 200, 250, 350, 400],  # power line freqs EU
     method='fir',
-    ch_names: dict = None,  # names of channels after artefact removal per group
+    ch_names: dict = None,  # clean incl channelnames per group
     save=None,
     verbose='Warning'
 ):

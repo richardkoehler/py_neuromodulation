@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import mne_bids
 import mne
 from scipy.signal import resample_poly
+import csv
 
 
 # creates Class-init, repr gives printing-info, frozen makes 'immutable'
@@ -23,10 +24,13 @@ class RunInfo:
     acq: str  # acquisition: stimulation and Dysk-Meds (StimOffLevo30)
     run: str  # run sequence, e.g. '01'
     sourcepath: str  # directory where source data (.Poly5) is stored
+    project_path: str  # folder with sub-folder code/data/figures
     bidspath: Any = None  # made after initiazing
     store_str: Any = None  # made after initiazing
     preproc_sett: str = None  # foldername for specific settings
     fig_path: str = None  # folder to store figures
+    data_path: str = None  # folder to store preprocessed data
+    lead_type: str = None  # pre-defined lead-type of subject
 
     def __post_init__(self,):  # is called after initialization
         bidspath = mne_bids.BIDSPath(
@@ -46,26 +50,54 @@ class RunInfo:
         self.bidspath = bidspath
         # folder name to store figures and derivative
         self.store_str = store_str
-        if not self.preproc_sett == None:
+        
+        # define folders to store figures and processed data
+        self.fig_path = os.path.join(self.project_path, 'figures')
+        self.data_path = os.path.join(self.project_path, 'data')
+        # check (+ create) sub figure- and data-folders
+        for folder in [self.data_path, self.fig_path]:
             if not os.path.exists(os.path.join(
-                self.fig_path,
-                'preprocessing',
-                self.store_str,
-                self.preproc_sett,
+                folder, f'preprocess/sub-{self.sub}',
             )):
                 os.mkdir(os.path.join(
-                    self.fig_path,
-                    'preprocessing',
-                    self.store_str,
-                    self.preproc_sett,
+                    folder, f'preprocess/sub-{self.sub}',
                 ))
+        # check (+ create) run figure- and data-folders
+        for folder in [self.data_path, self.fig_path]:
+            if not os.path.exists(os.path.join(
+                folder, f'preprocess/sub-{self.sub}',
+                self.store_str,
+            )):
+                os.mkdir(os.path.join(
+                    folder, f'preprocess/sub-{self.sub}',
+                    self.store_str,
+                ))
+            # check (+ create) ft-version folders
+            if not os.path.exists(os.path.join(
+                folder, f'preprocess/sub-{self.sub}',
+                self.store_str, self.preproc_sett,
+            )):
+                os.mkdir(os.path.join(
+                    folder, f'preprocess/sub-{self.sub}',
+                    self.store_str, self.preproc_sett,
+                ))
+        # Finally overwrites data_path and fig_path with
+        # specific path's incl run and ft-version
+        self.data_path = os.path.join(
+                self.data_path, f'preprocess/sub-{self.sub}',
+                self.store_str, self.preproc_sett,
+            )
+        self.fig_path = os.path.join(
+            self.fig_path, f'preprocess/sub-{self.sub}',
+            self.store_str, self.preproc_sett,
+        )  
+        
+        lead__type_dict = {
+            '008': 'BSX',  # Boston Cartesia Vercice X
+            '009': 'MTSS',  # Medtronic SenSight
+        }
+        self.lead_type = lead__type_dict[self.sub]
 
-
-# change value via object.__setattr__ if frozen=True
-# object.__setattr__(self, 'bidspath', bidspath)
-# consider using 'slots'=variables in Class
-# __slots__ = [list of var's]
-# this decreases the memory and increases the speed of the Class
 
 
 @dataclass(init=True, repr=True,)
@@ -139,26 +171,75 @@ def resample(
 
 
 def save_arrays(
-    data: dict, group: str, runInfo: Any,
+    data: dict, names: dict, group: str, runInfo: Any,
 ):
     '''
     Function to save preprocessed 3d-arrays as npy-files.
 
     Arguments:
         - data (dict): containing 3d-arrays
+        - names (dict): containing channel-name lists
+        corresponding to data arrays
         - group(str): group to save
         - runInfo (class): class containing info of spec-run
 
     Returns:
         - None
     '''
-    # define (and make) directory
-    f_dir = os.path.join(os.path.dirname(runInfo.fig_path),
-                        'data/preprocessed',
-                        runInfo.store_str)
-    if not os.path.exists(f_dir):
-        os.mkdir(f_dir)
+    # define filename, save data-array per group (lfp L/R vs ecog)
+    f_name = f'preproc_{runInfo.preproc_sett}_{group}_data.npy'
+    np.save(os.path.join(runInfo.data_path, f_name), data[group])
+    # save list of channel-names as txt-file
+    f_name = f'preproc_{runInfo.preproc_sett}_{group}_chnames.csv'
+    with open(os.path.join(runInfo.data_path, f_name), 'w') as f:
+            write = csv.writer(f)
+            write.writerow(names[group])
 
-    f_name = f'preproc_{runInfo.preproc_sett}_{group}.npy'
-    np.save(os.path.join(f_dir, f_name), data[group])
+    return
 
+
+
+def read_preprocessed_data(runInfo):
+    '''
+    Function which reads the saved preprocessed 3d-ararys and lists
+    with channel-names again into Python Objects.
+
+    Arguments:
+        - runInfo: class contains the location where the files of the defined
+        ft-version are saved
+
+    Returns:
+        - data (dict): dict with a 3d array of processed data, per group
+        (e.g. lfp-l, lfp-r, ecog)
+        - names (dict): dict containing the corresponding row-names
+        belonging to the data groups (incl 'time', 'LFP_L_01', etc)
+    '''
+    files = os.listdir(runInfo.data_path)  # get filenames in folder
+    sel_npy = [f[-3:] == 'npy' for f in files]  # make Boolean for .npy
+    sel_csv = [f[-3:] == 'csv' for f in files]  # make Boolean for .csv
+    # only includes files for which npy/csv-Boolean is True
+    f_npy = [f for (f, s) in zip(files, sel_npy) if s]
+    f_csv = [f for (f, s) in zip(files, sel_csv) if s]
+
+    data = {}  # dict to store processed data arrays
+    names = {}  # dict to store corresponding names
+    groups = ['ecog', 'lfp_left', 'lfp_right']
+    for g in groups:
+        for fdat in f_npy:
+            for fname in f_csv:
+                if np.logical_and(g in fdat, g in fname):
+                    # for matching files with defined group
+                    data[g] = np.load(os.path.join(
+                        runInfo.data_path, fdat))
+                    names[g] = []
+                    with open(os.path.join(runInfo.data_path, fname),
+                            newline='') as csvfile:
+                        reader = csv.reader(csvfile, delimiter=',')
+                        for row in reader:
+                            names[g] = row
+        s1 = data[g].shape[1]
+        s2 = len(names[g])
+        assert s1 == s2, ('# rows not equal for data (npy)'
+                         f'and names (csv) in {g}')
+
+    return data, names
