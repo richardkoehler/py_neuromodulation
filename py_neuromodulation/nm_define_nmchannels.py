@@ -14,15 +14,16 @@ def set_channels(
     bads: Optional[list[str]] = None,
     new_names: Union[str, list[str]] = "default",
     ecog_only: bool = False,
-    used_types: Optional[Iterable[str]] = ("ecog", "dbs", "seeg"),
-    target_keywords: Optional[Iterable[str]] = ("mov", "squared", "label"),
+    used_types: Iterable[str] | str | None = ("ecog", "dbs", "seeg"),
+    target_keywords: Iterable[str] | str | None = ("mov", "squared", "label"),
 ):
-    """Return dataframe with channel-specific settings in nm_channels format.
+    """
+    Return dataframe with channel-specific settings in nm_channels format.
 
     Return an nm_channels dataframe with the columns: "name", "rereference",
     "used", "target", "type", "status", "new_name"]. "name" is set to ch_names,
-    "rereference" can be specified individually. "used" is set to 1 for all 
-    channel types specified in `used_types`, else to 0. "target" is set to 1 
+    "rereference" can be specified individually. "used" is set to 1 for all
+    channel types specified in `used_types`, else to 0. "target" is set to 1
     for all channels containing any of the `target_keywords`, else to 0.
 
     Possible channel types:
@@ -54,12 +55,14 @@ def set_channels(
             given, it should be in the same order as `ch_names`.
         ECOG_ONLY : boolean, default: False
             if True, set only 'ecog' channel type to used
-        used_types : iterable of str | None, default : ("ecog", "dbs", "seeg")
+        used_types : iterable of str | str | None,
+            default : ("ecog", "dbs", "seeg")
             data channel types to be used. Set to `None` to use no channel
             types.
-        target_keywords : iterable of str | None, default : ("ecog", "dbs", "seeg")
-            keywords for target channels
-.
+        target_keywords : iterable of str | str| None,
+            default : ("ecog", "dbs", "seeg")
+            keywords for target channels.
+
     Returns
     -------
         df: DataFrame in nm_channels format
@@ -85,6 +88,8 @@ def set_channels(
     df["name"] = ch_names
 
     if used_types:
+        if isinstance(used_types, str):
+            used_types = (used_types,)
         used_list = []
         for ch_type in ch_types:
             if any(
@@ -98,6 +103,8 @@ def set_channels(
         df["used"] = 0
 
     if target_keywords:
+        if isinstance(target_keywords, str):
+            target_keywords = (target_keywords,)
         targets = []
         for ch_name in ch_names:
             if any(kw.lower() in ch_name.lower() for kw in target_keywords):
