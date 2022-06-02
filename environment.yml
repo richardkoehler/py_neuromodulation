@@ -1,6 +1,6 @@
 name: pn_env
 channels:
-  - conda-forge  
+  - conda-forge
 dependencies:
   - python>=3.10
   - mne
@@ -11,8 +11,9 @@ dependencies:
   - scipy
   - ipykernel
   - pytest
-  - filtyterpy
+  - filterpy
   - fooof
   - scikit-optimize
   - xgboost
+  - pynput
   - imbalanced-learn

@@ -1,5 +1,3 @@
-from audioop import mul
-import nm_stream_abc
 import pandas as pd
 import os
 import multiprocessing
@@ -91,8 +89,8 @@ def main():
     app = nm_RealTimeStreamApp.StreamApp(
         stream_,
         VERBOSE=False,
-        TRAINING=False,
-        PREDICTION=True,
+        TRAINING=True,
+        PREDICTION=False,
         fig=None,
         ax=None,
     )
@@ -136,7 +134,7 @@ def main():
     fig, ax = plt.subplots()
     (ln,) = plt.plot([], [], "ro")
     ani = FuncAnimation(fig, update, blit=True, fargs=(app.queue_plotting,))
-    plt.show()
+    # plt.show()
 
     time_call_get_data_s = np.round(
         1 / app.stream.settings["sampling_rate_features_hz"], 2

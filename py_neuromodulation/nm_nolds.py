@@ -1,6 +1,5 @@
 import numpy as np
 from typing import Iterable
-import nolds
 
 from py_neuromodulation import nm_features_abc, nm_oscillatory
 
