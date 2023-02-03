@@ -1,3 +1,4 @@
+from __future__ import annotations
 from sklearn import (
     model_selection,
     metrics,

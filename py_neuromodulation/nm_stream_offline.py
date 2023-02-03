@@ -1,13 +1,12 @@
 """Module for offline data streams."""
+from __future__ import annotations
 import math
-import os
 
 import numpy as np
 import pandas as pd
 
 from py_neuromodulation import nm_generator, nm_IO, nm_stream_abc
-
-_PathLike = str | os.PathLike
+from .nm_IO import _PathLike
 
 
 class _OfflineStream(nm_stream_abc.PNStream):

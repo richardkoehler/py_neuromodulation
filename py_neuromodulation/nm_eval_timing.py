@@ -1,3 +1,4 @@
+from __future__ import annotations
 import timeit
 from . import nm_oscillatory
 import numpy as np

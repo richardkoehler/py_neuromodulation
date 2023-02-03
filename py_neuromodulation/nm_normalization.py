@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Module for real-time data normalization."""
 from enum import Enum
 

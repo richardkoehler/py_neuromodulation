@@ -1,7 +1,71 @@
+from __future__ import annotations
 """Module for filter functionality."""
 import mne
 from mne.filter import _overlap_add_filter
 import numpy as np
+import numpy.typing as npt
+import scipy.signal
+
+
+class IIRFilter:
+    """An IIR filter for preprocessing."""
+
+    def __init__(
+        self,
+        sfreq: int | float,
+        order: int = 2,
+        l_freq: int | float | None = None,
+        h_freq: int | float | None = None,
+        filter_type: str | None = None,
+    ) -> None:
+        """Initialise filter instance.
+
+        If l_freq and h_freq are both specified, filter_type must be either
+        "bandpass" or "bandstop".
+        """
+        self.sfreq = sfreq
+        self.order = order
+        self.l_freq = l_freq
+        self.h_freq = h_freq
+        self.filter_type = filter_type
+        self.sos = None
+        self.z_sos = None
+        self._create_filter()
+
+    def _create_filter(self) -> None:
+        """Create filter"""
+        if self.l_freq and self.h_freq:
+            if not self.filter_type in ["bandpass", "bandstop"]:
+                raise ValueError(
+                    "l_freq and h_freq are specified, filter_type must be"
+                    " either 'bandpass' or 'bandstop'. Got:"
+                    f" {self.filter_type}."
+                )
+            Wn = [self.l_freq, self.h_freq]
+            btype = self.filter_type
+        elif self.l_freq:
+            Wn = self.l_freq
+            btype = "highpass"
+        elif self.h_freq:
+            Wn = self.h_freq
+            btype = "lowpass"
+        else:
+            raise ValueError(
+                "Either l_freq, h_freq or both must be specified when"
+                " filtering the data. Please check your settings."
+            )
+        self.sos = scipy.signal.butter(
+            self.order, Wn=Wn, btype=btype, fs=self.sfreq, output="sos"
+        )
+
+    def process(self, data: np.ndarray) -> np.ndarray:
+        if self.z_sos is None:
+            z_sos_0 = scipy.signal.sosfilt_zi(self.sos)
+            self.z_sos = np.repeat(
+                z_sos_0[:, np.newaxis, :], data.shape[0], axis=1
+            )
+        data, self.z_sos = scipy.signal.sosfilt(self.sos, data, -1, self.z_sos)
+        return data
 
 
 class BandPassFilter:
@@ -106,7 +170,7 @@ class NotchFilter:
         self,
         sfreq: int | float,
         line_noise: int | float | None = None,
-        freqs: np.ndarray | None = None,
+        freqs: npt.ArrayLike | None = None,
         notch_widths: int | np.ndarray | None = 3,
         trans_bandwidth: int = 15,
     ) -> None:
@@ -117,6 +181,9 @@ class NotchFilter:
             )
         if freqs is None:
             freqs = np.arange(line_noise, sfreq / 2, line_noise, dtype=int)
+        else:
+            freqs = np.array(freqs, dtype=int)
+        print(f"{freqs = }")
 
         if freqs.size > 0:
             if freqs[-1] >= sfreq / 2:

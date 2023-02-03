@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Module for handling nm_channels."""
 from typing import Iterable, Optional, Union
 

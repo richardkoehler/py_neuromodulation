@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Iterable
 
 import numpy as np
@@ -82,7 +83,7 @@ class FFT(OscillatoryFeature):
 
             features_compute[feature_name] = feature_calc
         return features_compute
-
+    
 
 class STFT(OscillatoryFeature):
     def __init__(

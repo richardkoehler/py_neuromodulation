@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Re-referencing Module."""
 import numpy as np
 import pandas as pd

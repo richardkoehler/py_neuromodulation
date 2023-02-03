@@ -1,3 +1,4 @@
+from __future__ import annotations
 import numpy as np
 from scipy.signal import convolve, find_peaks
 from mne.filter import create_filter

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 FieldTrip buffer (V1) client in pure Python
 (C) 2010 S. Klanke

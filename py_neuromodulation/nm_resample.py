@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Module for resampling."""
 import mne
 import numpy as np

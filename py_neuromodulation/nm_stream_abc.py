@@ -1,4 +1,5 @@
 """Module that contains PNStream ABC."""
+from __future__ import annotations
 from abc import ABC, abstractmethod
 import os
 import pathlib
@@ -12,10 +13,9 @@ from py_neuromodulation import (
     nm_IO,
     nm_plots,
     nm_run_analysis,
-    nm_settings
+    nm_settings,
 )
-
-_PathLike = str | os.PathLike
+from .nm_IO import _PathLike
 
 
 class PNStream(ABC):
@@ -108,7 +108,7 @@ class PNStream(ABC):
     def _load_settings(settings: dict | _PathLike | None) -> dict:
         if isinstance(settings, dict):
             return settings
-        if settings is None: 
+        if settings is None:
             return nm_settings.get_default_settings()
         return nm_IO.read_settings(str(settings))
 

@@ -1,7 +1,7 @@
 """This module contains the class to process a given batch of data."""
+from __future__ import annotations
 from enum import Enum
 import math
-import os
 from time import time
 from typing import Protocol, Type
 
@@ -17,8 +17,7 @@ from py_neuromodulation import (
     nm_rereference,
     nm_resample,
 )
-
-_PathLike = str | os.PathLike
+from .nm_IO import _PathLike
 
 
 class Preprocessor(Protocol):
@@ -88,39 +87,38 @@ class DataProcessor:
         self.preprocessors: list[Preprocessor] = []
         for preprocessing_method in self.settings["preprocessing"]:
             settings_str = f"{preprocessing_method}_settings"
-            match preprocessing_method:
-                case "raw_resampling":
-                    preprocessor = nm_resample.Resampler(
-                        sfreq=self.sfreq_raw, **self.settings[settings_str]
-                    )
-                    self.sfreq_raw = preprocessor.sfreq_new
-                    self.preprocessors.append(preprocessor)
-                case "notch_filter":
-                    preprocessor = nm_filter.NotchFilter(
-                        sfreq=self.sfreq_raw,
-                        line_noise=self.line_noise,
-                        **self.settings.get(settings_str, {}),
-                    )
-                    self.preprocessors.append(preprocessor)
-                case "re_referencing":
-                    preprocessor = nm_rereference.ReReferencer(
-                        sfreq=self.sfreq_raw,
-                        nm_channels=self.nm_channels,
-                    )
-                    self.preprocessors.append(preprocessor)
-                case "raw_normalization":
-                    preprocessor = nm_normalization.RawNormalizer(
-                        sfreq=self.sfreq_raw,
-                        sampling_rate_features_hz=self.sfreq_features,
-                        **self.settings.get(settings_str, {}),
-                    )
-                    self.preprocessors.append(preprocessor)
-                case _:
-                    raise ValueError(
-                        "Invalid preprocessing method. Must be one of"
-                        f" {_PREPROCESSING_CONSTRUCTORS}. Got"
-                        f" {preprocessing_method}"
-                    )
+            if preprocessing_method == "raw_resampling":
+                preprocessor = nm_resample.Resampler(
+                    sfreq=self.sfreq_raw, **self.settings[settings_str]
+                )
+                self.sfreq_raw = preprocessor.sfreq_new
+                self.preprocessors.append(preprocessor)
+            elif preprocessing_method == "notch_filter":
+                preprocessor = nm_filter.NotchFilter(
+                    sfreq=self.sfreq_raw,
+                    line_noise=self.line_noise,
+                    **self.settings.get(settings_str, {}),
+                )
+                self.preprocessors.append(preprocessor)
+            elif preprocessing_method == "re_referencing":
+                preprocessor = nm_rereference.ReReferencer(
+                    sfreq=self.sfreq_raw,
+                    nm_channels=self.nm_channels,
+                )
+                self.preprocessors.append(preprocessor)
+            elif preprocessing_method == "raw_normalization":
+                preprocessor = nm_normalization.RawNormalizer(
+                    sfreq=self.sfreq_raw,
+                    sampling_rate_features_hz=self.sfreq_features,
+                    **self.settings.get(settings_str, {}),
+                )
+                self.preprocessors.append(preprocessor)
+            else:
+                raise ValueError(
+                    "Invalid preprocessing method. Must be one of"
+                    f" {_PREPROCESSING_CONSTRUCTORS}. Got"
+                    f" {preprocessing_method}"
+                )
 
         if self.settings["postprocessing"]["feature_normalization"]:
             settings_str = "feature_normalization_settings"
@@ -354,11 +352,8 @@ class DataProcessor:
             )
 
         if self.verbose is True:
-            print(
-                "Last batch took: "
-                + str(np.round(time() - start_time, 2))
-                + " seconds"
-            )
+            end = str(np.round(time() - start_time, 3))
+            print("Last batch took: " + end + " seconds")
 
         return features_current
 

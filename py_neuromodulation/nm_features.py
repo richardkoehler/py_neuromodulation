@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Module for calculating features."""
 import numpy as np
 
@@ -12,6 +14,7 @@ from py_neuromodulation import (
     nm_bursts,
     nm_linelength,
     nm_mne_connectiviy,
+    nm_std,
 )
 
 
@@ -28,51 +31,46 @@ class Features:
         for feature in s["features"]:
             if s["features"][feature] is False:
                 continue
-            match feature:
-                case "raw_hjorth":
-                    self.features.append(
-                        nm_hjorth_raw.Hjorth(s, ch_names, sfreq)
-                    )
-                case "return_raw":
-                    self.features.append(nm_hjorth_raw.Raw(s, ch_names, sfreq))
-                case "bandpass_filter":
-                    self.features.append(
-                        nm_oscillatory.BandPower(s, ch_names, sfreq)
-                    )
-                case "stft":
-                    self.features.append(
-                        nm_oscillatory.STFT(s, ch_names, sfreq)
-                    )
-                case "fft":
-                    self.features.append(
-                        nm_oscillatory.FFT(s, ch_names, sfreq)
-                    )
-                case "sharpwave_analysis":
-                    self.features.append(
-                        nm_sharpwaves.SharpwaveAnalyzer(s, ch_names, sfreq)
-                    )
-                case "fooof":
-                    self.features.append(
-                        nm_fooof.FooofAnalyzer(s, ch_names, sfreq)
-                    )
-                case "nolds":
-                    self.features.append(nm_nolds.Nolds(s, ch_names, sfreq))
-                case "coherence":
-                    self.features.append(
-                        nm_coherence.NM_Coherence(s, ch_names, sfreq)
-                    )
-                case "bursts":
-                    self.features.append(nm_bursts.Burst(s, ch_names, sfreq))
-                case "linelength":
-                    self.features.append(
-                        nm_linelength.LineLength(s, ch_names, sfreq)
-                    )
-                case "mne_connectivity":
-                    self.features.append(
-                        nm_mne_connectiviy.MNEConnectivity(s, ch_names, sfreq)
-                    )
-                case _:
-                    raise ValueError(f"Unknown feature found. Got: {feature}.")
+            if feature == "raw_hjorth":
+                self.features.append(nm_hjorth_raw.Hjorth(s, ch_names, sfreq))
+            elif feature == "return_raw":
+                self.features.append(nm_hjorth_raw.Raw(s, ch_names, sfreq))
+            elif feature == "bandpass_filter":
+                self.features.append(
+                    nm_oscillatory.BandPower(s, ch_names, sfreq)
+                )
+            elif feature == "stft":
+                self.features.append(nm_oscillatory.STFT(s, ch_names, sfreq))
+            elif feature == "fft":
+                self.features.append(nm_oscillatory.FFT(s, ch_names, sfreq))
+            elif feature == "sharpwave_analysis":
+                self.features.append(
+                    nm_sharpwaves.SharpwaveAnalyzer(s, ch_names, sfreq)
+                )
+            elif feature == "fooof":
+                self.features.append(
+                    nm_fooof.FooofAnalyzer(s, ch_names, sfreq)
+                )
+            elif feature == "nolds":
+                self.features.append(nm_nolds.Nolds(s, ch_names, sfreq))
+            elif feature == "coherence":
+                self.features.append(
+                    nm_coherence.NM_Coherence(s, ch_names, sfreq)
+                )
+            elif feature == "bursts":
+                self.features.append(nm_bursts.Burst(s, ch_names, sfreq))
+            elif feature == "linelength":
+                self.features.append(
+                    nm_linelength.LineLength(s, ch_names, sfreq)
+                )
+            elif feature == "mne_connectivity":
+                self.features.append(
+                    nm_mne_connectiviy.MNEConnectivity(s, ch_names, sfreq)
+                )
+            elif feature == "std":
+                self.features.append(nm_std.Std(s, ch_names, sfreq))
+            else:
+                raise ValueError(f"Unknown feature found. Got: {feature}.")
 
     def estimate_features(self, data: np.ndarray) -> dict:
         """Calculate features, as defined in settings.json

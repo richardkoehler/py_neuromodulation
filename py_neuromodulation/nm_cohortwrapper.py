@@ -1,3 +1,4 @@
+from __future__ import annotations
 from re import VERBOSE
 import sys
 import os

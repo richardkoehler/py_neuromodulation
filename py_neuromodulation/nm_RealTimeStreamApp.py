@@ -1,3 +1,4 @@
+from __future__ import annotations
 from multiprocessing import managers
 import os
 import multiprocessing

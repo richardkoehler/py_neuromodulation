@@ -1,7 +1,9 @@
+from __future__ import annotations
 import json
 import os
 import sys
 from pathlib import Path
+from typing import Union
 
 import mne
 import mne_bids
@@ -9,7 +11,7 @@ import numpy as np
 import pandas as pd
 from scipy import io
 
-_PathLike = str | os.PathLike
+_PathLike = Union[str, os.PathLike]
 
 
 def load_nm_channels(

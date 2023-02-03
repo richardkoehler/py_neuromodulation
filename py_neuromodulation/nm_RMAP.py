@@ -1,3 +1,4 @@
+from __future__ import annotations
 import enum
 import nibabel as nib
 import numpy as np

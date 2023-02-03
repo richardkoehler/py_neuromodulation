@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractclassmethod, abstractmethod
 import numpy as np
 from typing import Iterable
@@ -11,7 +12,7 @@ class Feature(ABC):
         pass
 
     @abstractclassmethod
-    def calc_feature(self, data: np.array, features_compute: dict) -> dict:
+    def calc_feature(self, data: np.ndarray, features_compute: dict) -> dict:
         """
         Feature calculation method. Each method needs to loop through all channels
 
