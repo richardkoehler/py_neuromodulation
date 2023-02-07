@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterable
+from typing import Iterable, Sequence
 
 import numpy as np
 from py_neuromodulation import nm_features_abc
@@ -7,13 +7,13 @@ from py_neuromodulation import nm_features_abc
 
 class Std(nm_features_abc.Feature):
     def __init__(
-        self, settings: dict, ch_names: Iterable[str], sfreq: float
+        self, settings: dict, ch_names: Iterable[str], sfreq: float, windows: Sequence | None = None
     ) -> None:
         self.s = settings
         self.sfreq = sfreq
         self.ch_names = ch_names
-
-        windows = [100, 1000]
+        if windows is None:
+            windows = (settings["segment_length_features_ms"],)
 
         self.feature_params = []
         for ch_idx, ch_name in enumerate(self.ch_names):
