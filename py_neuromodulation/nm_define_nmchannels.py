@@ -1,9 +1,8 @@
 """Module for handling nm_channels."""
 from typing import Iterable, Optional, Union
 
-import pandas as pd
 import numpy as np
-
+import pandas as pd
 
 _LFP_TYPES = ["seeg", "dbs", "lfp"]  # must be lower-case
 

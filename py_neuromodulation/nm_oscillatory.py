@@ -3,7 +3,7 @@ from typing import Iterable
 import numpy as np
 from scipy import fft, signal
 
-from py_neuromodulation import nm_filter, nm_features_abc, nm_kalmanfilter
+from py_neuromodulation import nm_features_abc, nm_filter, nm_kalmanfilter
 
 
 class OscillatoryFeature(nm_features_abc.Feature):

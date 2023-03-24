@@ -1,8 +1,6 @@
 """Module for handling settings."""
 import pathlib
 
-import pandas as pd
-
 from py_neuromodulation import nm_IO
 
 

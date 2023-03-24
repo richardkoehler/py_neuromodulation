@@ -1,22 +1,15 @@
 """This module contains the class to process a given batch of data."""
-from enum import Enum
 import math
 import os
+from enum import Enum
 from time import time
 from typing import Protocol, Type
 
 import numpy as np
 import pandas as pd
 
-from py_neuromodulation import (
-    nm_features,
-    nm_filter,
-    nm_IO,
-    nm_normalization,
-    nm_projection,
-    nm_rereference,
-    nm_resample,
-)
+from py_neuromodulation import (nm_features, nm_filter, nm_IO,
+                                nm_normalization, nm_rereference, nm_resample)
 
 _PathLike = str | os.PathLike
 

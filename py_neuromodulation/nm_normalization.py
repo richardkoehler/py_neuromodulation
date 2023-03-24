@@ -1,8 +1,8 @@
 """Module for real-time data normalization."""
 from enum import Enum
 
-from sklearn import preprocessing
 import numpy as np
+from sklearn import preprocessing
 
 
 class NORM_METHODS(Enum):

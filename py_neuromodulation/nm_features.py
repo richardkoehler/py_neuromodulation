@@ -1,18 +1,7 @@
 """Module for calculating features."""
 import numpy as np
 
-from py_neuromodulation import (
-    nm_hjorth_raw,
-    nm_sharpwaves,
-    nm_coherence,
-    nm_fooof,
-    nm_nolds,
-    nm_features_abc,
-    nm_oscillatory,
-    nm_bursts,
-    nm_linelength,
-    nm_mne_connectiviy,
-)
+from py_neuromodulation import nm_features_abc, nm_oscillatory
 
 
 class Features:
@@ -29,30 +18,12 @@ class Features:
             if s["features"][feature] is False:
                 continue
             match feature:
-                case "raw_hjorth":
-                    FeatureClass = nm_hjorth_raw.Hjorth
-                case "return_raw":
-                    FeatureClass = nm_hjorth_raw.Raw
                 case "bandpass_filter":
                     FeatureClass = nm_oscillatory.BandPower
                 case "stft":
                     FeatureClass = nm_oscillatory.STFT
                 case "fft":
                     FeatureClass = nm_oscillatory.FFT
-                case "sharpwave_analysis":
-                    FeatureClass = nm_sharpwaves.SharpwaveAnalyzer
-                case "fooof":
-                    FeatureClass = nm_fooof.FooofAnalyzer
-                case "nolds":
-                    FeatureClass = nm_nolds.Nolds
-                case "coherence":
-                    FeatureClass = nm_coherence.NM_Coherence
-                case "bursts":
-                    FeatureClass = nm_bursts.Burst
-                case "linelength":
-                    FeatureClass = nm_linelength.LineLength
-                case "mne_connectivity":
-                    FeatureClass = nm_mne_connectiviy.MNEConnectivity
                 case _:
                     raise ValueError(f"Unknown feature found. Got: {feature}.")
 

@@ -1,7 +1,7 @@
-from numpy import array, cov
 from typing import Iterable
 
 from filterpy.kalman import KalmanFilter
+from numpy import array, cov
 
 
 def define_KF(Tp, sigma_w, sigma_v):

@@ -1,7 +1,7 @@
 """Module for filter functionality."""
 import mne
-from mne.filter import _overlap_add_filter
 import numpy as np
+from mne.filter import _overlap_add_filter
 
 
 class BandPassFilter:

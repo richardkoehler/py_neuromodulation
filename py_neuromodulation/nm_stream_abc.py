@@ -1,19 +1,13 @@
 """Module that contains PNStream ABC."""
-from abc import ABC, abstractmethod
 import os
 import pathlib
-import _pickle as cPickle
+from abc import ABC, abstractmethod
 
+import _pickle as cPickle
 import pandas as pd
 from sklearn import base
 
-from py_neuromodulation import (
-    nm_features,
-    nm_IO,
-    nm_plots,
-    nm_run_analysis,
-    nm_settings
-)
+from py_neuromodulation import nm_features, nm_IO, nm_run_analysis, nm_settings
 
 _PathLike = str | os.PathLike
 
@@ -118,27 +112,6 @@ class PNStream(ABC):
         """Load sklearn model, that utilizes predict"""
         with open(model_name, "rb") as fid:
             self.model = cPickle.load(fid)
-
-    def plot_cortical_projection(self) -> None:
-        """plot projection of cortical grid electrodes on cortex"""
-        ecog_strip = None
-        if self.projection is not None:
-            ecog_strip = self.projection.ecog_strip
-
-        grid_cortex = None
-        if self.projection is not None:
-            grid_cortex = self.projection.grid_cortex
-
-        sess_right = None
-        if self.projection is not None:
-            sess_right = self.projection.sess_right
-
-        nmplotter = nm_plots.NM_Plot(
-            ecog_strip=ecog_strip,
-            grid_cortex=grid_cortex,
-            sess_right=sess_right,
-        )
-        nmplotter.plot_cortex(set_clim=False)
 
     def save_after_stream(
         self,

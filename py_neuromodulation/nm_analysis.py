@@ -1,16 +1,11 @@
 import os
 from pathlib import Path
-from re import VERBOSE
-import re
-from typing import Optional
 
-import _pickle as cPickle
 import numpy as np
 import pandas as pd
-from sklearn import base, linear_model, metrics, model_selection
 from scipy import stats
 
-from py_neuromodulation import nm_decode, nm_IO, nm_plots
+from py_neuromodulation import nm_IO
 
 target_filter_str = {
     "CLEAN",
@@ -34,7 +29,6 @@ class Feature_Reader:
     feature_arr: pd.DataFrame
     ch_names: list[str]
     ch_names_ECOG: list[str]
-    decoder: nm_decode.Decoder = None
 
     def __init__(
         self, feature_dir: str, feature_file: str, binarize_label: bool = True
@@ -83,8 +77,6 @@ class Feature_Reader:
             '(type=="ecog") and (used == 1) and (status=="good")'
         ).new_name.to_list()
 
-        # init plotter
-        self.nmplotter = nm_plots.NM_Plot()
         if self.nm_channels["target"].sum() > 0:
             self.label_name = self._get_target_ch()
             self.label = self.read_target_ch(
@@ -204,150 +196,6 @@ class Feature_Reader:
         feature_arr_norm["time"] = self.feature_arr["time"]
         return feature_arr_norm
 
-    def plot_cort_projection(self) -> None:
-        if self.sidecar["sess_right"]:
-            ecog_strip = np.array(
-                self.sidecar["coords"]["cortex_right"]["positions"]
-            )
-        else:
-            ecog_strip = np.array(
-                self.sidecar["coords"]["cortex_left"]["positions"]
-            )
-        self.nmplotter.plot_cortex(
-            grid_cortex=np.array(self.sidecar["grid_cortex"])
-            if "grid_cortex" in self.sidecar
-            else None,
-            ecog_strip=ecog_strip,
-            grid_color=np.array(self.sidecar["proj_matrix_cortex"]).sum(axis=1)
-            if "grid_cortex" in self.sidecar
-            else None,
-            set_clim=False,
-        )
-
-    def plot_target_avg_all_channels(
-        self,
-        ch_names_ECOG=None,
-        list_feature_keywords: list[str] = ["stft"],
-        epoch_len: int = 4,
-        threshold: float = 0.1,
-    ):
-        """Wrapper that call plot_features_per_channel
-        for every given ECoG channel
-
-        Parameters
-        ----------
-        ch_names_ECOG : list, optional
-            list of ECoG channel to plot features for, by default None
-        """
-
-        if ch_names_ECOG is None:
-            ch_names_ECOG = self.ch_names_ECOG
-        for ch_name_ECOG in ch_names_ECOG:
-            self.plot_target_averaged_channel(
-                ch=ch_name_ECOG,
-                list_feature_keywords=list_feature_keywords,
-                epoch_len=epoch_len,
-                threshold=threshold,
-            )
-
-    def plot_target_averaged_channel(
-        self,
-        ch: str = None,
-        list_feature_keywords: Optional[list[str]] = None,
-        features_to_plt: list = None,
-        epoch_len: int = 4,
-        threshold: float = 0.1,
-        normalize_data: bool = True,
-        show_plot: bool = True,
-        title: str = "Movement aligned features",
-        ytick_labelsize=None,
-        figsize_x: float = 8,
-        figsize_y: float = 8,
-    ) -> None:
-        # TODO: This does not work properly when we have bipolar rereferencing
-
-        if features_to_plt is None:
-
-            filtered_df = self.feature_arr[
-                self.filter_features(
-                    self.feature_arr.columns, ch, list_feature_keywords
-                )[::-1]
-            ]
-        else:
-            filtered_df = self.feature_arr[features_to_plt]
-
-        data = np.expand_dims(np.array(filtered_df), axis=1)
-
-        X_epoch, y_epoch = self.get_epochs(
-            data,
-            self.label,
-            epoch_len=epoch_len,
-            sfreq=self.settings["sampling_rate_features_hz"],
-            threshold=threshold,
-        )
-
-        nm_plots.plot_epochs_avg(
-            X_epoch=X_epoch,
-            y_epoch=y_epoch,
-            epoch_len=epoch_len,
-            sfreq=self.settings["sampling_rate_features_hz"],
-            feature_names=list(filtered_df.columns),
-            feature_str_add="_".join(list_feature_keywords)
-            if list_feature_keywords is not None
-            else "all",
-            cut_ch_name_cols=True,
-            ch_name=ch if ch is not None else None,
-            label_name=self.label_name,
-            normalize_data=normalize_data,
-            show_plot=show_plot,
-            save=True,
-            OUT_PATH=self.feature_dir,
-            feature_file=self.feature_file,
-            str_title=title,
-            ytick_labelsize=ytick_labelsize,
-            figsize_x=figsize_x,
-            figsize_y=figsize_y
-        )
-
-    def plot_all_features(
-        self,
-        ch_used: str = None,
-        time_limit_low_s: float = None,
-        time_limit_high_s: float = None,
-        normalize: bool = True,
-        save: bool = False,
-        title="all_feature_plt.pdf",
-        ytick_labelsize: int = 10,
-        clim_low: float = None,
-        clim_high: float = None,
-    ):
-
-        if ch_used is not None:
-            col_used = [
-                c
-                for c in self.feature_arr.columns
-                if c.startswith(ch_used)
-                or c == "time"
-                or "LABEL" in c
-                or "MOV" in c
-            ]
-            df = self.feature_arr[col_used[::-1]]
-        else:
-            df = self.feature_arr[self.feature_arr.columns[::-1]]
-
-        nm_plots.plot_all_features(
-            df=df,
-            time_limit_low_s=time_limit_low_s,
-            time_limit_high_s=time_limit_high_s,
-            normalize=normalize,
-            save=save,
-            title=title,
-            ytick_labelsize=ytick_labelsize,
-            feature_file=self.feature_file,
-            OUT_PATH=self.feature_dir,
-            clim_low=clim_low,
-            clim_high=clim_high,
-        )
 
     @staticmethod
     def get_performace_sub_strip(performance_sub: dict, plt_grid: bool = False):
@@ -379,118 +227,7 @@ class Feature_Reader:
             grid_performance,
         )
 
-    def plot_across_subject_grd_ch_performance(
-        self,
-        performance_dict=None,
-        plt_grid=False,
-        feature_str_add="performance_allch_allgrid",
-    ):
-        ecog_strip_performance = []
-        ecog_coords_strip = []
-        grid_performance = []
-        for sub in performance_dict.keys():
-            (
-                ecog_strip_performance_sub,
-                ecog_coords_strip_sub,
-                _,
-                grid_performance_sub,
-            ) = self.get_performace_sub_strip(
-                performance_dict[sub], plt_grid=plt_grid
-            )
-            ecog_strip_performance.extend(ecog_strip_performance_sub)
-            ecog_coords_strip.extend(ecog_coords_strip_sub)
-            grid_performance.append(grid_performance_sub)
-        grid_performance = list(np.vstack(grid_performance).mean(axis=0))
-        coords_all = np.array(ecog_coords_strip)
-        coords_all[:, 0] = np.abs(coords_all[:, 0])
 
-        self.nmplotter.plot_cortex(
-            grid_cortex=np.array(self.sidecar["grid_cortex"])
-            if "grid_cortex" in self.sidecar
-            else None,
-            ecog_strip=coords_all if len(ecog_coords_strip) > 0 else None,
-            grid_color=grid_performance if len(grid_performance) > 0 else None,
-            strip_color=np.array(ecog_strip_performance)
-            if len(ecog_strip_performance) > 0
-            else None,
-            sess_right=self.sidecar["sess_right"],
-            save=True,
-            OUT_PATH=self.feature_dir,
-            feature_file=self.feature_file,
-            feature_str_add=feature_str_add,
-            show_plot=True,
-        )
-
-    def plot_subject_grid_ch_performance(
-        self,
-        subject_name=None,
-        performance_dict=None,
-        plt_grid=False,
-        feature_str_add="performance_allch_allgrid",
-    ):
-        """plot subject specific performance for individual channeal and optional grid points
-
-        Parameters
-        ----------
-        subject_name : string, optional
-            used subject, by default None
-        performance_dict : dict, optional
-            [description], by default None
-        plt_grid : bool, optional
-            True to plot grid performances, by default False
-        feature_str_add : string, optional
-            figure output_name
-        """
-
-        ecog_strip_performance = []
-        ecog_coords_strip = []
-        cortex_grid = []
-        grid_performance = []
-
-        if subject_name is None:
-            subject_name = self.feature_file[
-                self.feature_file.find("sub-") : self.feature_file.find("_ses")
-            ][4:]
-
-        (
-            ecog_strip_performance,
-            ecog_coords_strip,
-            cortex_grid,
-            grid_performance,
-        ) = self.get_performace_sub_strip(
-            performance_dict[subject_name], plt_grid=plt_grid
-        )
-
-        self.nmplotter.plot_cortex(
-            grid_cortex=np.array(self.sidecar["grid_cortex"])
-            if "grid_cortex" in self.sidecar
-            else None,
-            ecog_strip=ecog_coords_strip
-            if len(ecog_coords_strip) > 0
-            else None,
-            grid_color=grid_performance if len(grid_performance) > 0 else None,
-            strip_color=ecog_strip_performance
-            if len(ecog_strip_performance) > 0
-            else None,
-            sess_right=self.sidecar["sess_right"],
-            save=True,
-            OUT_PATH=self.feature_dir,
-            feature_file=self.feature_file,
-            feature_str_add=feature_str_add,
-            show_plot=True,
-        )
-
-    def plot_feature_series_time(
-        self,
-    ):
-        self.nmplotter.plot_feature_series_time(self.feature_arr)
-
-    def plot_corr_matrix(
-        self,
-    ):
-        return nm_plots.plot_corr_matrix(
-            self.feature_arr,
-        )
 
     @staticmethod
     def get_epochs(data, y_, epoch_len, sfreq, threshold=0):
@@ -545,130 +282,6 @@ class Feature_Reader:
 
         return epoch_, y_arr
 
-    def set_decoder(
-        self,
-        decoder: nm_decode.Decoder = None,
-        TRAIN_VAL_SPLIT=False,
-        RUN_BAY_OPT=False,
-        save_coef=False,
-        model: base.BaseEstimator = linear_model.LogisticRegression,
-        eval_method=metrics.r2_score,
-        cv_method: model_selection.BaseCrossValidator = model_selection.KFold(
-            n_splits=3, shuffle=False
-        ),
-        get_movement_detection_rate: bool = False,
-        mov_detection_threshold=0.5,
-        min_consequent_count=3,
-        threshold_score=True,
-        bay_opt_param_space: list = [],
-        STACK_FEATURES_N_SAMPLES=False,
-        time_stack_n_samples=5,
-        use_nested_cv=False,
-        VERBOSE=False,
-        undersampling=False,
-        oversampling=False,
-        mrmr_select=False,
-        pca=False,
-        cca=False,
-    ):
-        if decoder is not None:
-            self.decoder = decoder
-        else:
-
-            self.decoder = nm_decode.Decoder(
-                features=self.feature_arr,
-                label=self.label,
-                label_name=self.label_name,
-                used_chs=self.used_chs,
-                model=model,
-                eval_method=eval_method,
-                cv_method=cv_method,
-                threshold_score=threshold_score,
-                TRAIN_VAL_SPLIT=TRAIN_VAL_SPLIT,
-                RUN_BAY_OPT=RUN_BAY_OPT,
-                save_coef=save_coef,
-                get_movement_detection_rate=get_movement_detection_rate,
-                min_consequent_count=min_consequent_count,
-                mov_detection_threshold=mov_detection_threshold,
-                bay_opt_param_space=bay_opt_param_space,
-                STACK_FEATURES_N_SAMPLES=STACK_FEATURES_N_SAMPLES,
-                time_stack_n_samples=time_stack_n_samples,
-                VERBOSE=VERBOSE,
-                use_nested_cv=use_nested_cv,
-                undersampling=undersampling,
-                oversampling=oversampling,
-                mrmr_select=mrmr_select,
-                sfreq=self.sfreq,
-                pca=pca,
-                cca=cca,
-            )
-
-    def run_ML_model(
-        self,
-        feature_file: str = None,
-        estimate_gridpoints: bool = False,
-        estimate_channels: bool = True,
-        estimate_all_channels_combined: bool = False,
-        output_name: str = "LM",
-        save_results: bool = True,
-    ):
-        """machine learning model evaluation for ECoG strip channels and/or grid points
-
-        Parameters
-        ----------
-        feature_file : string, optional
-            [description], by default None
-        estimate_gridpoints : bool, optional
-            run ML analysis for grid points, by default True
-        estimate_channels : bool, optional
-            run ML analysis for ECoG strip channel, by default True
-        estimate_all_channels_combined : bool, optional
-            run ML analysis features of all channels concatenated, by default False
-        model : sklearn model, optional
-            ML model, needs to obtain fit and predict functions,
-            by default linear_model.LogisticRegression(class_weight="balanced")
-        eval_method : sklearn.metrics, optional
-            evaluation performance metric, by default metrics.balanced_accuracy_score
-        cv_method : sklearn.model_selection, optional
-            valdation strategy, by default model_selection.KFold(n_splits=3, shuffle=False)
-        output_name : str, optional
-            saving name, by default "LM"
-        TRAIN_VAL_SPLIT : bool, optional
-            data is split into further validation for early stopping, by default False
-        save_coef (boolean):
-            if true, save model._coef trained coefficients
-        """
-        if feature_file is None:
-            feature_file = self.feature_file
-
-        if estimate_gridpoints:
-            self.decoder.set_data_grid_points()
-            _ = self.decoder.run_CV_caller("grid_points")
-        if estimate_channels:
-            self.decoder.set_data_ind_channels()
-            _ = self.decoder.run_CV_caller("ind_channels")
-        if estimate_all_channels_combined:
-            _ = self.decoder.run_CV_caller("all_channels_combined")
-
-        if save_results:
-            self.decoder.save(
-                self.feature_dir,
-                self.feature_file
-                if ".vhdr" in self.feature_file
-                else self.feature_file,
-                output_name,
-            )
-
-        return self.read_results(
-            read_grid_points=estimate_gridpoints,
-            read_all_combined=estimate_all_channels_combined,
-            read_channels=estimate_channels,
-            ML_model_name=output_name,
-            read_mov_detection_rates=self.decoder.get_movement_detection_rate,
-            read_bay_opt_params=self.decoder.RUN_BAY_OPT,
-            read_mrmr=self.decoder.mrmr_select,
-            model_save=self.decoder.model_save,
-        )
 
     def read_results(
         self,
@@ -731,12 +344,6 @@ class Feature_Reader:
             feature_file,
             feature_file + "_" + ML_model_name + "_ML_RES.p",
         )
-
-        # read ML results
-        with open(PATH_ML_, "rb") as input:
-            ML_res = cPickle.load(input)
-            if self.decoder is None:
-                self.decoder = ML_res
 
         performance_dict[subject_name] = {}
 
@@ -862,7 +469,6 @@ class Feature_Reader:
         if read_channels:
 
             ch_to_use = self.ch_names_ECOG
-            ch_to_use = self.decoder.used_chs
             for ch in ch_to_use:
 
                 performance_dict[subject_name][ch] = {}
