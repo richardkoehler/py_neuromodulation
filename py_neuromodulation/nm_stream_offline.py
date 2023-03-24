@@ -112,7 +112,7 @@ class Stream(_OfflineStream):
         out_path_root: _PathLike | None = None,
         folder_name: str = "sub",
     ) -> pd.DataFrame:
-        """Call run function for offline stream. 
+        """Call run function for offline stream.
 
         Parameters
         ----------

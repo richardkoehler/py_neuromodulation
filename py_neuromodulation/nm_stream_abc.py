@@ -104,7 +104,7 @@ class PNStream(ABC):
     def _load_settings(settings: dict | _PathLike | None) -> dict:
         if isinstance(settings, dict):
             return settings
-        if settings is None: 
+        if settings is None:
             return nm_settings.get_default_settings()
         return nm_IO.read_settings(str(settings))
 
@@ -151,9 +151,7 @@ class PNStream(ABC):
     ) -> None:
         self.run_analysis.save_nm_channels(out_path_root, folder_name)
 
-    def save_settings(
-        self, out_path_root: _PathLike, folder_name: str
-    ) -> None:
+    def save_settings(self, out_path_root: _PathLike, folder_name: str) -> None:
         self.run_analysis.save_settings(out_path_root, folder_name)
 
     def save_sidecar(self, out_path_root: _PathLike, folder_name: str) -> None:

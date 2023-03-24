@@ -196,7 +196,6 @@ class Feature_Reader:
         feature_arr_norm["time"] = self.feature_arr["time"]
         return feature_arr_norm
 
-
     @staticmethod
     def get_performace_sub_strip(performance_sub: dict, plt_grid: bool = False):
 
@@ -226,8 +225,6 @@ class Feature_Reader:
             cortex_grid,
             grid_performance,
         )
-
-
 
     @staticmethod
     def get_epochs(data, y_, epoch_len, sfreq, threshold=0):
@@ -281,7 +278,6 @@ class Feature_Reader:
             y_arr[idx, :] = y_[i - epoch_lim // 2 : i + epoch_lim // 2]
 
         return epoch_, y_arr
-
 
     def read_results(
         self,

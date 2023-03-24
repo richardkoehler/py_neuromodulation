@@ -59,7 +59,9 @@ class RawNormalizer:
             value at which to clip after normalization
         """
 
-        test_normalization_settings(normalization_time_s, normalization_method, clip)
+        test_normalization_settings(
+            normalization_time_s, normalization_method, clip
+        )
 
         self.method = normalization_method
         self.clip = clip
@@ -110,7 +112,9 @@ class FeatureNormalizer:
             value at which to clip after normalization
         """
 
-        test_normalization_settings(normalization_time_s, normalization_method, clip)
+        test_normalization_settings(
+            normalization_time_s, normalization_method, clip
+        )
 
         self.method = normalization_method
         self.clip = clip

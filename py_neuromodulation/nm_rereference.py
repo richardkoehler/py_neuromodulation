@@ -75,8 +75,7 @@ class ReReferencer:
                 shape(n_channels, n_samples) - data to be rereferenced.
 
         Returns:
-            reref_data (numpy ndarray): 
+            reref_data (numpy ndarray):
             shape(n_channels, n_samples) - rereferenced data
         """
         return self.ref_matrix @ data
-        

@@ -86,7 +86,9 @@ def set_channels(
 
     if used_types:
         if type(used_types) is str:
-            used_types = [used_types]          # Even if the user passes only ("ecog"), the if statement bellow will work
+            used_types = [
+                used_types
+            ]  # Even if the user passes only ("ecog"), the if statement bellow will work
         used_list = []
         for ch_type in ch_types:
             if any(
@@ -242,11 +244,13 @@ def _get_default_references(
         df.iloc[df[df["name"] == other_ch].index[0], ref_idx] = "None"
     return df
 
+
 def get_default_channels_from_data(
-        data: np.array, car_rereferencing:bool=True,
+    data: np.array,
+    car_rereferencing: bool = True,
 ):
     """Return default nm_channels dataframe with
-    ecog datatype, no bad channels, no targets, common average rereferencing 
+    ecog datatype, no bad channels, no targets, common average rereferencing
 
     Parameters
     ----------
@@ -258,7 +262,7 @@ def get_default_channels_from_data(
     Returns
     -------
     pd.DataFrame
-        nm_channel dataframe containing columns: 
+        nm_channel dataframe containing columns:
          - name
          - rereference
          - used

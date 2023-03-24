@@ -54,12 +54,6 @@ exclude = '''
   __pycache__
 )/
 '''
-include = '''
-(
-  /src/
-  # | /tests
-)
-'''
 line-length = 80
 target-version = ['py310']
 

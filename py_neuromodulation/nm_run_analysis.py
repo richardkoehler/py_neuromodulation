@@ -8,8 +8,14 @@ from typing import Protocol, Type
 import numpy as np
 import pandas as pd
 
-from py_neuromodulation import (nm_features, nm_filter, nm_IO,
-                                nm_normalization, nm_rereference, nm_resample)
+from py_neuromodulation import (
+    nm_features,
+    nm_filter,
+    nm_IO,
+    nm_normalization,
+    nm_rereference,
+    nm_resample,
+)
 
 _PathLike = str | os.PathLike
 
@@ -20,6 +26,7 @@ class Preprocessor(Protocol):
 
     def test_settings(self, settings: dict):
         ...
+
 
 _PREPROCESSING_CONSTRUCTORS = [
     "notch_filter",
@@ -388,9 +395,7 @@ class DataProcessor:
 
         nm_IO.save_sidecar(sidecar, out_path_root, folder_name)
 
-    def save_settings(
-        self, out_path_root: _PathLike, folder_name: str
-    ) -> None:
+    def save_settings(self, out_path_root: _PathLike, folder_name: str) -> None:
         nm_IO.save_settings(self.settings, out_path_root, folder_name)
 
     def save_nm_channels(
