@@ -3,21 +3,22 @@ import os
 import pathlib
 from abc import ABC, abstractmethod
 
-import _pickle as cPickle
+import pickle
 import pandas as pd
 from sklearn import base
 
-from py_neuromodulation import nm_features, nm_IO, nm_run_analysis, nm_settings
+from .features import Features
+from .processor import DataProcessor
+from . import io
 
 _PathLike = str | os.PathLike
 
 
 class PNStream(ABC):
-
     settings: dict
     nm_channels: pd.DataFrame
-    run_analysis: nm_run_analysis.DataProcessor
-    features: nm_features.Features
+    run_analysis: DataProcessor
+    features: Features
     coords: dict
     sfreq: int | float
     path_grids: _PathLike | None
@@ -53,13 +54,11 @@ class PNStream(ABC):
         self.sess_right = None
         self.projection = None
         self.model = None
-        self.run_analysis = nm_run_analysis.DataProcessor(
+        self.run_analysis = DataProcessor(
             sfreq=self.sfreq,
             settings=self.settings,
             nm_channels=self.nm_channels,
             path_grids=self.path_grids,
-            coord_names=coord_names,
-            coord_list=coord_list,
             line_noise=line_noise,
             verbose=self.verbose,
         )
@@ -97,7 +96,7 @@ class PNStream(ABC):
         nm_channels: pd.DataFrame | _PathLike,
     ) -> pd.DataFrame:
         if not isinstance(nm_channels, pd.DataFrame):
-            return nm_IO.load_nm_channels(nm_channels)
+            return io.load_nm_channels(nm_channels)
         return nm_channels
 
     @staticmethod
@@ -105,13 +104,13 @@ class PNStream(ABC):
         if isinstance(settings, dict):
             return settings
         if settings is None:
-            return nm_settings.get_default_settings()
-        return nm_IO.read_settings(str(settings))
+            return settings.get_default_settings()
+        return io.read_settings(str(settings))
 
     def load_model(self, model_name: _PathLike) -> None:
         """Load sklearn model, that utilizes predict"""
         with open(model_name, "rb") as fid:
-            self.model = cPickle.load(fid)
+            self.model = pickle.load(fid)
 
     def save_after_stream(
         self,
@@ -144,14 +143,16 @@ class PNStream(ABC):
         folder_name: str,
         feature_arr: pd.DataFrame,
     ) -> None:
-        nm_IO.save_features(feature_arr, out_path_root, folder_name)
+        io.save_features(feature_arr, out_path_root, folder_name)
 
     def save_nm_channels(
         self, out_path_root: _PathLike, folder_name: str
     ) -> None:
         self.run_analysis.save_nm_channels(out_path_root, folder_name)
 
-    def save_settings(self, out_path_root: _PathLike, folder_name: str) -> None:
+    def save_settings(
+        self, out_path_root: _PathLike, folder_name: str
+    ) -> None:
         self.run_analysis.save_settings(out_path_root, folder_name)
 
     def save_sidecar(self, out_path_root: _PathLike, folder_name: str) -> None:

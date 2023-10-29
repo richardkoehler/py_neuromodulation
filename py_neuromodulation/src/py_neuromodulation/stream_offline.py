@@ -5,18 +5,18 @@ import os
 import numpy as np
 import pandas as pd
 
-from py_neuromodulation import nm_generator, nm_IO, nm_stream_abc
+from . import generator, io, stream_abc
 
 _PathLike = str | os.PathLike
 
 
-class _OfflineStream(nm_stream_abc.PNStream):
+class _OfflineStream(stream_abc.PNStream):
     def _add_labels(
         self, features: pd.DataFrame, data: np.ndarray
     ) -> pd.DataFrame:
         """Add resampled labels to features if there are target channels."""
         if self.nm_channels["target"].sum() > 0:
-            features = nm_IO.add_labels(
+            features = io.add_labels(
                 features=features,
                 settings=self.settings,
                 nm_channels=self.nm_channels,
@@ -33,7 +33,6 @@ class _OfflineStream(nm_stream_abc.PNStream):
         Due to normalization run_analysis needs to keep track of the counted
         samples. These are accessed here for time conversion.
         """
-        timestamp = cnt_samples * 1000 / self.sfreq
         feature_series["time"] = cnt_samples * 1000 / self.sfreq
 
         if self.verbose:
@@ -74,27 +73,18 @@ class _OfflineStream(nm_stream_abc.PNStream):
         out_path_root: _PathLike | None = None,
         folder_name: str = "sub",
     ) -> pd.DataFrame:
-        generator = nm_generator.raw_data_generator(
-            data=data,
-            settings=self.settings,
-            sfreq=math.floor(self.sfreq),
-        )
-        features = []
-        sample_add = int(self.sfreq / self.run_analysis.sfreq_features)
-        cnt_samples = int(self.sfreq)
+        sfreq = math.floor(self.sfreq)
+        sfreq_feat = self.settings["sampling_rate_features_hz"]
+        batch_window = self.settings["segment_length_features_ms"]
+        batch_size = np.ceil(batch_window / 1000 * sfreq).astype(int)
+        sample_steps = np.ceil(sfreq / sfreq_feat).astype(int)
 
-        while True:
-            data_batch = next(generator, None)
-            if data_batch is None:
-                break
+        gen = generator.raw_data_generator(data, batch_size, sample_steps)
+        features = []
+        for data_batch, cnt_samples in gen:
             feature_series = self.run_analysis.process(data_batch)
             feature_series = self._add_timestamp(feature_series, cnt_samples)
             features.append(feature_series)
-
-            if self.model is not None:
-                prediction = self.model.predict(feature_series)
-
-            cnt_samples += sample_add
 
         feature_df = pd.DataFrame(features)
         feature_df = self._add_labels(features=feature_df, data=data)

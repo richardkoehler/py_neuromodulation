@@ -1,4 +1,6 @@
 """Module for filter functionality."""
+from typing import Sequence
+
 import mne
 import numpy as np
 from mne.filter import _overlap_add_filter
@@ -106,7 +108,7 @@ class NotchFilter:
         self,
         sfreq: int | float,
         line_noise: int | float | None = None,
-        freqs: np.ndarray | None = None,
+        freqs: Sequence | None = None,
         notch_widths: int | np.ndarray | None = 3,
         trans_bandwidth: int = 15,
     ) -> None:
@@ -117,6 +119,8 @@ class NotchFilter:
             )
         if freqs is None:
             freqs = np.arange(line_noise, sfreq / 2, line_noise, dtype=int)
+        elif not isinstance(freqs, np.ndarray):
+            freqs = np.array(freqs)
 
         if freqs.size > 0:
             if freqs[-1] >= sfreq / 2:

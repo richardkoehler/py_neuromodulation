@@ -8,13 +8,13 @@ from typing import Protocol, Type
 import numpy as np
 import pandas as pd
 
-from py_neuromodulation import (
-    nm_features,
-    nm_filter,
-    nm_IO,
-    nm_normalization,
-    nm_rereference,
-    nm_resample,
+from . import (
+    features,
+    filter,
+    io,
+    normalization,
+    rereference,
+    resample,
 )
 
 _PathLike = str | os.PathLike
@@ -49,28 +49,16 @@ class DataProcessor:
         sfreq: int | float,
         settings: dict | _PathLike,
         nm_channels: pd.DataFrame | _PathLike,
-        coord_names: list | None = None,
-        coord_list: list | None = None,
         line_noise: int | float | None = None,
         path_grids: _PathLike | None = None,
         verbose: bool = True,
     ) -> None:
-        """Initialize run class.
+        """Initialize data processing class.
 
         Parameters
         ----------
-        features : features.py object
-            Feature_df object (needs to be initialized beforehand)
         settings : dict
             dictionary of settings such as "seglengths" or "frequencyranges"
-        reference : reference.py object
-            Rereference object (needs to be initialized beforehand), by default None
-        projection : projection.py object
-            projection object (needs to be initialized beforehand), by default None
-        resample : resample.py object
-            Resample object (needs to be initialized beforehand), by default None
-        notch_filter : nm_filter.NotchFilter,
-            Notch Filter object, needs to be instantiated beforehand
         verbose : boolean
             if True, print out signal processed and computation time
         """
@@ -86,32 +74,32 @@ class DataProcessor:
 
         self.features_previous = None
 
-        (ch_names_used, _, self.feature_idx, _) = self._get_ch_info()
+        (self.ch_names_used, _, self.feature_idx, _) = self._get_ch_info()
         self.preprocessors: list[Preprocessor] = []
         for preprocessing_method in self.settings["preprocessing"]:
             settings_str = f"{preprocessing_method}_settings"
             match preprocessing_method:
                 case "raw_resampling":
-                    preprocessor = nm_resample.Resampler(
+                    preprocessor = resample.Resampler(
                         sfreq=self.sfreq_raw, **self.settings[settings_str]
                     )
                     self.sfreq_raw = preprocessor.sfreq_new
                     self.preprocessors.append(preprocessor)
                 case "notch_filter":
-                    preprocessor = nm_filter.NotchFilter(
+                    preprocessor = filter.NotchFilter(
                         sfreq=self.sfreq_raw,
                         line_noise=self.line_noise,
                         **self.settings.get(settings_str, {}),
                     )
                     self.preprocessors.append(preprocessor)
                 case "re_referencing":
-                    preprocessor = nm_rereference.ReReferencer(
+                    preprocessor = rereference.ReReferencer(
                         sfreq=self.sfreq_raw,
                         nm_channels=self.nm_channels,
                     )
                     self.preprocessors.append(preprocessor)
                 case "raw_normalization":
-                    preprocessor = nm_normalization.RawNormalizer(
+                    preprocessor = normalization.RawNormalizer(
                         sfreq=self.sfreq_raw,
                         sampling_rate_features_hz=self.sfreq_features,
                         **self.settings.get(settings_str, {}),
@@ -126,23 +114,16 @@ class DataProcessor:
 
         if self.settings["postprocessing"]["feature_normalization"]:
             settings_str = "feature_normalization_settings"
-            self.feature_normalizer = nm_normalization.FeatureNormalizer(
+            self.feature_normalizer = normalization.FeatureNormalizer(
                 sampling_rate_features_hz=self.sfreq_features,
                 **self.settings.get(settings_str, {}),
             )
 
-        self.features = nm_features.Features(
+        self.features = features.Features(
             s=self.settings,
-            ch_names=ch_names_used,
+            ch_names=self.ch_names_used,
             sfreq=self.sfreq_raw,
         )
-
-        if coord_list is not None and coord_names is not None:
-            self.coords = self._set_coords(
-                coord_names=coord_names, coord_list=coord_list
-            )
-
-        self.projection = self._get_projection(self.settings, self.nm_channels)
 
         self.cnt_samples = 0
 
@@ -174,7 +155,6 @@ class DataProcessor:
             for coord_loc in ["cortex", "subcortex"]
             for lat in ["left", "right"]
         ]:
-
             coords[coord_region] = {}
 
             ch_type = (
@@ -221,97 +201,18 @@ class DataProcessor:
         return ch_names_used, ch_types_used, feature_idx, label_idx
 
     @staticmethod
-    def _get_grids(
-        settings: dict,
-        path_grids: str | _PathLike | None,
-        grid_type: Type[GRIDS],
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
-        """Read settings specified grids
-
-        Parameters
-        ----------
-        settings : dict
-        path_grids : str
-        grid_type : GRIDS
-
-        Returns
-        -------
-        Tuple
-            grid_cortex, grid_subcortex,
-            might be None if not specified in settings
-        """
-        if settings["postprocessing"]["project_cortex"] is True:
-            grid_cortex = nm_IO.read_grid(path_grids, grid_type.CORTEX.name)
-        else:
-            grid_cortex = None
-        if settings["postprocessing"]["project_subcortex"] is True:
-            grid_subcortex = nm_IO.read_grid(
-                path_grids, grid_type.SUBCORTEX.name
-            )
-        else:
-            grid_subcortex = None
-        return grid_cortex, grid_subcortex
-
-    def _get_projection(
-        self, settings: dict, nm_channels: pd.DataFrame
-    ) -> nm_projection.Projection | None:
-        """Return projection of used coordinated and grids"""
-
-        if not any(
-            (
-                settings["postprocessing"]["project_cortex"],
-                settings["postprocessing"]["project_subcortex"],
-            )
-        ):
-            return None
-
-        grid_cortex, grid_subcortex = self._get_grids(
-            self.settings, self.path_grids, GRIDS
-        )
-        projection = nm_projection.Projection(
-            settings=settings,
-            grid_cortex=grid_cortex,
-            grid_subcortex=grid_subcortex,
-            coords=self.coords,
-            nm_channels=nm_channels,
-            plot_projection=False,
-        )
-        return projection
-
-    @staticmethod
     def _load_nm_channels(
         nm_channels: pd.DataFrame | _PathLike,
     ) -> pd.DataFrame:
         if not isinstance(nm_channels, pd.DataFrame):
-            return nm_IO.load_nm_channels(nm_channels)
+            return io.load_nm_channels(nm_channels)
         return nm_channels
 
     @staticmethod
     def _load_settings(settings: dict | _PathLike) -> dict:
         if not isinstance(settings, dict):
-            return nm_IO.read_settings(str(settings))
+            return io.read_settings(str(settings))
         return settings
-
-    def _set_coords(
-        self, coord_names: list[str] | None, coord_list: list | None
-    ) -> dict:
-        if not any(
-            (
-                self.settings["postprocessing"]["project_cortex"],
-                self.settings["postprocessing"]["project_subcortex"],
-            )
-        ):
-            return {}
-
-        if any((coord_list is None, coord_names is None)):
-            raise ValueError(
-                "No coordinates could be loaded. Please provide coord_list and"
-                f" coord_names. Got: {coord_list=}, {coord_names=}."
-            )
-
-        return self._add_coordinates(
-            coord_names=coord_names, coord_list=coord_list
-        )
 
     def process(self, data: np.ndarray) -> pd.Series:
         """Given a new data batch, calculate and return features.
@@ -349,12 +250,6 @@ class DataProcessor:
             dtype=np.float64,
         )
 
-        # project features to grid
-        if self.projection:
-            features_current = self.projection.project_features(
-                features_current
-            )
-
         if self.verbose is True:
             print(
                 "Last batch took: "
@@ -377,31 +272,22 @@ class DataProcessor:
             "original_fs": self._sfreq_raw_orig,
             "final_fs": self.sfreq_raw,
             "sfreq": self.sfreq_features,
+            "ch_names": self.ch_names_used,
         }
-        if self.projection:
-            sidecar["coords"] = self.projection.coords
-            if self.settings["postprocessing"]["project_cortex"]:
-                sidecar["grid_cortex"] = self.projection.grid_cortex
-                sidecar[
-                    "proj_matrix_cortex"
-                ] = self.projection.proj_matrix_cortex
-            if self.settings["postprocessing"]["project_subcortex"]:
-                sidecar["grid_subcortex"] = self.projection.grid_subcortex
-                sidecar[
-                    "proj_matrix_subcortex"
-                ] = self.projection.proj_matrix_subcortex
         if additional_args is not None:
             sidecar = sidecar | additional_args
 
-        nm_IO.save_sidecar(sidecar, out_path_root, folder_name)
+        io.save_sidecar(sidecar, out_path_root, folder_name)
 
-    def save_settings(self, out_path_root: _PathLike, folder_name: str) -> None:
-        nm_IO.save_settings(self.settings, out_path_root, folder_name)
+    def save_settings(
+        self, out_path_root: _PathLike, folder_name: str
+    ) -> None:
+        io.save_settings(self.settings, out_path_root, folder_name)
 
     def save_nm_channels(
         self, out_path_root: _PathLike, folder_name: str
     ) -> None:
-        nm_IO.save_nm_channels(self.nm_channels, out_path_root, folder_name)
+        io.save_nm_channels(self.nm_channels, out_path_root, folder_name)
 
     def save_features(
         self,
@@ -409,4 +295,4 @@ class DataProcessor:
         folder_name: str,
         feature_arr: pd.DataFrame,
     ) -> None:
-        nm_IO.save_features(feature_arr, out_path_root, folder_name)
+        io.save_features(feature_arr, out_path_root, folder_name)

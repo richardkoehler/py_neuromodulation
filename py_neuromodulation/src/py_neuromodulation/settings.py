@@ -1,7 +1,7 @@
 """Module for handling settings."""
 import pathlib
 
-from py_neuromodulation import nm_IO
+from . import io
 
 
 def get_default_settings() -> dict:
@@ -9,7 +9,7 @@ def get_default_settings() -> dict:
     settings_path = str(
         pathlib.Path(__file__).parent.resolve() / "nm_settings.json"
     )
-    return nm_IO.read_settings(settings_path)
+    return io.read_settings(settings_path)
 
 
 def reset_settings(
